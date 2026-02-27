@@ -26,3 +26,8 @@ PERSISTENCE_PATH: str = os.environ.get("PERSISTENCE_PATH", "data/bot_persistence
 # Pyrogram MTProto credentials (from https://my.telegram.org)
 API_ID: int = int(_require_env("API_ID"))
 API_HASH: str = _require_env("API_HASH")
+
+# Bot admins — comma-separated usernames that can issue commands
+# e.g. ADMIN_USERNAMES=minhhieuvux,user2,user3
+_raw_admins = os.environ.get("ADMIN_USERNAMES")
+ADMIN_USERNAMES: set[str] = {u.strip() for u in _raw_admins.split(",") if u.strip()}

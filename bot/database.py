@@ -57,6 +57,8 @@ async def init_db() -> None:
     """Create database tables if they don't exist. Enable WAL mode."""
     async with aiosqlite.connect(DB_PATH) as db:
         await db.execute("PRAGMA journal_mode=WAL")
+        await db.execute("PRAGMA foreign_keys=ON")
+        await db.execute("PRAGMA busy_timeout=5000")
         await db.executescript(_SCHEMA_SQL)
         await db.commit()
     logger.info("Database initialized at %s", DB_PATH)
@@ -78,7 +80,8 @@ async def register_member(
             VALUES (?, ?, ?)
             ON CONFLICT(user_id) DO UPDATE SET
                 username = excluded.username,
-                full_name = excluded.full_name
+                full_name = excluded.full_name,
+                is_active = 1
             """,
             (user_id, username, full_name),
         )
@@ -186,21 +189,6 @@ async def delete_vote(poll_id: str, user_id: int) -> None:
         await db.commit()
 
 
-async def get_voters(poll_id: str) -> list[dict]:
-    """Get all voters for a poll with their option choice."""
-    async with aiosqlite.connect(DB_PATH) as db:
-        db.row_factory = aiosqlite.Row
-        cursor = await db.execute(
-            """
-            SELECT v.user_id, m.full_name, v.option_id
-            FROM votes v
-            JOIN members m ON v.user_id = m.user_id
-            WHERE v.poll_id = ?
-            """,
-            (poll_id,),
-        )
-        rows = await cursor.fetchall()
-        return [dict(r) for r in rows]
 
 
 async def get_voters_by_option(poll_id: str, option_id: int) -> list[dict]:

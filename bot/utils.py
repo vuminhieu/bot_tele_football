@@ -1,5 +1,6 @@
 """Utility helpers for formatting and date calculations."""
 
+import html
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 
@@ -24,8 +25,9 @@ def get_week_label() -> str:
 
 
 def format_mention_html(user_id: int, full_name: str) -> str:
-    """Format a single user mention as HTML link."""
-    return f'<a href="tg://user?id={user_id}">{full_name}</a>'
+    """Format a single user mention as HTML link (with name escaped)."""
+    safe_name = html.escape(full_name, quote=False)
+    return f'<a href="tg://user?id={user_id}">{safe_name}</a>'
 
 
 def format_mention_list(members: list[dict]) -> str:
@@ -49,7 +51,7 @@ def format_vote_list(
     parts.append(f"⚽ <b>Đá ({len(voters_play)}):</b>")
     if voters_play:
         for v in voters_play:
-            parts.append(f"• {v['full_name']}")
+            parts.append(f"• {html.escape(v['full_name'], quote=False)}")
     else:
         parts.append("• (chưa có)")
 
@@ -57,7 +59,7 @@ def format_vote_list(
     parts.append(f"\n❌ <b>Không đá ({len(voters_skip)}):</b>")
     if voters_skip:
         for v in voters_skip:
-            parts.append(f"• {v['full_name']}")
+            parts.append(f"• {html.escape(v['full_name'], quote=False)}")
     else:
         parts.append("• (chưa có)")
 
@@ -65,7 +67,7 @@ def format_vote_list(
     parts.append(f"\n❓ <b>Chưa vote ({len(non_voters)}):</b>")
     if non_voters:
         for v in non_voters:
-            parts.append(f"• {v['full_name']}")
+            parts.append(f"• {html.escape(v['full_name'], quote=False)}")
     else:
         parts.append("• (tất cả đã vote)")
 

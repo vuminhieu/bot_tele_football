@@ -11,12 +11,13 @@ Commands:
 """
 
 import logging
-
+import html
 from telegram import Update
 from telegram.ext import ContextTypes
 
-from bot.config import CHAT_ID
+from bot.config import ADMIN_USERNAMES, CHAT_ID
 from bot.database import (
+    deactivate_member,
     get_active_members,
     get_consecutive_inactive,
     get_current_poll,
@@ -74,22 +75,33 @@ async def handle_chat_member_update(
 
     # Member left or was kicked — mark inactive
     elif new.status in ("left", "kicked"):
-        from bot.database import deactivate_member
         await deactivate_member(user.id)
         logger.info("Member left/kicked: %s (%d)", user.full_name, user.id)
 
 # ---------------------------------------------------------------------------
-# Commands
+# Admin guard
 # ---------------------------------------------------------------------------
 
 
+def _is_admin(update: Update) -> bool:
+    """Check if the command sender is in the admin list."""
+    user = update.effective_user
+    return user is not None and user.username in ADMIN_USERNAMES
+
+
+# ---------------------------------------------------------------------------
+# Commands
+# ---------------------------------------------------------------------------
 async def cmd_list(
     update: Update, context: ContextTypes.DEFAULT_TYPE
 ) -> None:
     """Show current poll vote status: who voted Đá / Không đá / Chưa vote."""
+    if not _is_admin(update):
+        return
+
     poll = await get_current_poll()
     if not poll:
-        await update.message.reply_text("📭 Chưa có vote nào đang mở.")
+        await update.effective_message.reply_text("📭 Chưa có vote nào đang mở.")
         return
 
     voters_play = await get_voters_by_option(poll["poll_id"], 0)
@@ -99,39 +111,48 @@ async def cmd_list(
     text = format_vote_list(
         poll["week_label"], voters_play, voters_skip, non_voters
     )
-    await update.message.reply_text(text, parse_mode="HTML")
+    await update.effective_message.reply_text(text, parse_mode="HTML")
 
 
 async def cmd_getallmember(
     update: Update, context: ContextTypes.DEFAULT_TYPE
 ) -> None:
     """List all registered (active) members in the group."""
+    if not _is_admin(update):
+        return
+
     members = await get_active_members()
     if not members:
-        await update.message.reply_text("📭 Chưa có thành viên nào được đăng ký.")
+        await update.effective_message.reply_text("📭 Chưa có thành viên nào được đăng ký.")
         return
 
     lines = [f"👥 <b>Danh sách thành viên ({len(members)}):</b>\n"]
     for i, m in enumerate(members, 1):
-        name = m["full_name"]
+        name = html.escape(m["full_name"], quote=False)
         username = f' (@{m["username"]})' if m.get("username") else ""
         lines.append(f"{i}. {name}{username}")
 
-    await update.message.reply_text("\n".join(lines), parse_mode="HTML")
+    await update.effective_message.reply_text("\n".join(lines), parse_mode="HTML")
 
 async def cmd_inactive(
     update: Update, context: ContextTypes.DEFAULT_TYPE
 ) -> None:
     """Show members who voted 'Không đá' 3 consecutive times."""
+    if not _is_admin(update):
+        return
+
     inactive = await get_consecutive_inactive(n=3)
     text = format_inactive_list(inactive)
-    await update.message.reply_text(text, parse_mode="HTML")
+    await update.effective_message.reply_text(text, parse_mode="HTML")
 
 
 async def cmd_help(
     update: Update, context: ContextTypes.DEFAULT_TYPE
 ) -> None:
     """Show all available bot commands."""
+    if not _is_admin(update):
+        return
+
     text = (
         "📋 <b>Danh sách lệnh:</b>\n\n"
         "/list - Xem danh sách vote hiện tại\n"
@@ -142,7 +163,7 @@ async def cmd_help(
         "nhắc thứ 2 8:30 sáng, đóng thứ 2 12:00 trưa.\n"
         "Thành viên được tự động đồng bộ từ nhóm.</i>"
     )
-    await update.message.reply_text(text, parse_mode="HTML")
+    await update.effective_message.reply_text(text, parse_mode="HTML")
 
 
 async def cmd_testpoll(
@@ -152,21 +173,30 @@ async def cmd_testpoll(
 
     Can be sent from any chat — the poll is created in the configured group.
     """
+    if not _is_admin(update):
+        return
+
     await create_weekly_poll(context)
-    await update.message.reply_text("🧪 Test poll created.")
+    await update.effective_message.reply_text("🧪 Test poll created.")
 
 
 async def cmd_testreminder(
     update: Update, context: ContextTypes.DEFAULT_TYPE
 ) -> None:
     """Dev command: manually trigger vote reminder for testing."""
+    if not _is_admin(update):
+        return
+
     await send_vote_reminder(context)
-    await update.message.reply_text("🧪 Test reminder sent.")
+    await update.effective_message.reply_text("🧪 Test reminder sent.")
 
 
 async def cmd_testclose(
     update: Update, context: ContextTypes.DEFAULT_TYPE
 ) -> None:
     """Dev command: manually trigger poll close for testing."""
+    if not _is_admin(update):
+        return
+
     await close_weekly_poll(context)
-    await update.message.reply_text("🧪 Test close done.")
+    await update.effective_message.reply_text("🧪 Test close done.")

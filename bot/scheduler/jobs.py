@@ -24,7 +24,16 @@ logger = logging.getLogger(__name__)
 
 
 async def create_weekly_poll(context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Friday 8:30 AM — Create a non-anonymous poll and pin it."""
+    """Friday 8:30 AM — Create a non-anonymous poll and pin it.
+
+    Auto-closes any lingering open poll before creating a new one.
+    """
+    # Close any orphaned open poll from a previous week
+    existing = await get_current_poll()
+    if existing:
+        await close_poll(existing["poll_id"])
+        logger.warning("Auto-closed orphaned poll: %s", existing["week_label"])
+
     week_label = get_week_label()
     question = f"⚽ Đá bóng tuần tới ({week_label})?"
 
@@ -45,7 +54,8 @@ async def create_weekly_poll(context: ContextTypes.DEFAULT_TYPE) -> None:
             )
         except Exception:
             logger.warning(
-                "Failed to pin poll message. Bot may not have pin permissions."
+                "Failed to pin poll message. Bot may not have pin permissions.",
+                exc_info=True,
             )
 
         # Save to database

@@ -16,6 +16,12 @@ Strategy:
 
 import logging
 
+# Pyrogram 2.0.106 bug: MIN_CHANNEL_ID is capped at -1002147483647 (32-bit limit)
+# but Telegram now creates channels with IDs beyond that. Monkey-patch the constant
+# so resolve_peer() / get_chat() / get_chat_members() work with newer channel IDs.
+import pyrogram.utils  # noqa: E402
+pyrogram.utils.MIN_CHANNEL_ID = -1009999999999
+
 from bot.config import API_HASH, API_ID, BOT_TOKEN, CHAT_ID
 from bot.database import register_member
 

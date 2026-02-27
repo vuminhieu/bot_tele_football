@@ -1,0 +1,9 @@
+.git
+.env
+__pycache__
+*.pyc
+data/
+.claude/
+docs/
+*.md
+!requirements.txt

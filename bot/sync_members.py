@@ -20,8 +20,9 @@ from bot.database import register_member
 
 logger = logging.getLogger(__name__)
 
-# Pyrogram session name (stored as data/pyrogram_bot.session)
-_SESSION_NAME = "data/pyrogram_bot"
+# Use in-memory session — bot token re-authenticates each time,
+# no need to persist session file (avoids SQLite permission issues in Docker)
+_SESSION_NAME = "football_vote_bot"
 
 
 def _bot_api_id_to_channel_id(chat_id: int) -> int:
@@ -56,6 +57,7 @@ async def sync_group_members() -> int:
         api_id=API_ID,
         api_hash=API_HASH,
         bot_token=BOT_TOKEN,
+        in_memory=True,
         no_updates=True,
     ) as app:
         logger.info(

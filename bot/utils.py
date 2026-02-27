@@ -9,9 +9,10 @@ TZ = ZoneInfo(TIMEZONE)
 
 
 def get_week_label() -> str:
-    """Get next week's ISO week label. Called on Friday for next week's poll.
+    """Get the date of next Monday (football day).
 
-    Returns format like '2026-W10'.
+    Called on Friday for next week's poll.
+    Returns format like 'Thứ 2, 03/03/2026'.
     """
     now = datetime.now(TZ)
     # Calculate next Monday from current date
@@ -19,8 +20,7 @@ def get_week_label() -> str:
     if days_until_monday == 0:
         days_until_monday = 7
     next_monday = now + timedelta(days=days_until_monday)
-    iso_year, iso_week, _ = next_monday.isocalendar()
-    return f"{iso_year}-W{iso_week:02d}"
+    return f"Thứ 2, {next_monday.strftime('%d/%m/%Y')}"
 
 
 def format_mention_html(user_id: int, full_name: str) -> str:

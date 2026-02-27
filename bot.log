@@ -1,0 +1,11 @@
+2026-02-27 09:46:58,658 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-02-27 09:46:58,659 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-02-27 09:46:58,659 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-02-27 09:46:58,659 - __main__ - INFO - Starting bot polling...
+2026-02-27 09:46:59,430 - bot.database - INFO - Database initialized at data/bot.db
+2026-02-27 09:46:59,430 - __main__ - INFO - Bot initialized successfully.
+2026-02-27 09:46:59,641 - apscheduler.scheduler - INFO - Added job "create_weekly_poll" to job store "default"
+2026-02-27 09:46:59,642 - apscheduler.scheduler - INFO - Added job "send_vote_reminder" to job store "default"
+2026-02-27 09:46:59,643 - apscheduler.scheduler - INFO - Added job "close_weekly_poll" to job store "default"
+2026-02-27 09:46:59,643 - apscheduler.scheduler - INFO - Scheduler started
+2026-02-27 09:46:59,643 - telegram.ext.Application - INFO - Application started

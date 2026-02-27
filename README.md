@@ -10,12 +10,12 @@ Bot Telegram tự động quản lý vote đá bóng hàng tuần cho nhóm.
 - **Auto-pin** tin nhắn vote
 - **Theo dõi vote** real-time (ai đá, ai không đá, ai chưa vote)
 - **Phát hiện inactive** — ai vote "Không đá" 3 tuần liên tiếp
+- **Tự động đồng bộ thành viên** từ nhóm Telegram (không cần /register)
 
 ## Lệnh Bot
 
 | Lệnh | Mô tả |
 |-------|--------|
-| `/register` | Đăng ký vào nhóm đá bóng |
 | `/list` hoặc `/ds` | Xem danh sách vote hiện tại |
 | `/inactive` hoặc `/vang` | Xem người 3 tuần liên tiếp vote không đá |
 | `/help` | Hiển thị trợ giúp |
@@ -26,11 +26,18 @@ Bot Telegram tự động quản lý vote đá bóng hàng tuần cho nhóm.
 ### Yêu cầu
 - Docker & Docker Compose
 - Telegram Bot Token (tạo qua [@BotFather](https://t.me/BotFather))
+- API ID & API Hash (tạo tại [my.telegram.org](https://my.telegram.org))
 
 ### Bước 1: Tạo Bot
 1. Chat với [@BotFather](https://t.me/BotFather) trên Telegram
 2. Gửi `/newbot` và làm theo hướng dẫn
 3. Copy **Bot Token** được cung cấp
+
+### Bước 1.5: Lấy API ID & Hash
+1. Truy cập [my.telegram.org](https://my.telegram.org)
+2. Đăng nhập bằng số điện thoại Telegram
+3. Vào **API development tools**
+4. Tạo app (tên tùy ý) → copy **api_id** và **api_hash**
 
 ### Bước 2: Thêm Bot vào Group
 1. Thêm bot vào group Telegram
@@ -52,6 +59,8 @@ Sửa file `.env`:
 ```env
 BOT_TOKEN=your-bot-token-here
 CHAT_ID=-1001234567890
+API_ID=12345678
+API_HASH=your-api-hash-here
 ```
 
 ### Bước 5: Chạy
@@ -82,6 +91,7 @@ docker compose cp bot:/app/data ./backup-data
 | **Thứ 6, 8:30 sáng** | Tạo poll vote + ghim |
 | **Thứ 2, 8:30 sáng** | Nhắc nhở + tag người chưa vote |
 | **Thứ 2, 12:00 trưa** | Đóng poll + gửi tổng kết |
+| **Hàng ngày, 3:00 sáng** | Đồng bộ thành viên từ nhóm |
 
 ## Cấu trúc dự án
 
@@ -91,8 +101,9 @@ bot/
 ├── config.py            # Cấu hình từ env
 ├── database.py          # SQLite queries
 ├── utils.py             # Helpers
+├── sync_members.py      # Đồng bộ thành viên qua Pyrogram
 ├── handlers/
-│   ├── commands.py      # /register, /list, /inactive, /help
+│   ├── commands.py      # /list, /inactive, /help + ChatMember tracking
 │   └── poll_handler.py  # Xử lý vote real-time
 └── scheduler/
     └── jobs.py          # 3 scheduled jobs
@@ -101,7 +112,8 @@ bot/
 ## Lưu ý
 
 - Bot **phải là admin** trong group để ghim tin nhắn và nhận poll answers
-- Bot tự động đăng ký member khi họ gửi tin nhắn hoặc vote
+- Bot tự động đồng bộ thành viên từ nhóm (qua Pyrogram MTProto)
+- Thành viên join/leave được theo dõi real-time qua ChatMemberHandler
 - Dữ liệu lưu trong SQLite, persist qua Docker volume
 - Timezone cố định: `Asia/Ho_Chi_Minh` (UTC+7)
 

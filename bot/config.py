@@ -22,3 +22,7 @@ CHAT_ID: int = int(_require_env("CHAT_ID"))
 TIMEZONE: str = "Asia/Ho_Chi_Minh"
 DB_PATH: str = os.environ.get("DB_PATH", "data/bot.db")
 PERSISTENCE_PATH: str = os.environ.get("PERSISTENCE_PATH", "data/bot_persistence")
+
+# Pyrogram MTProto credentials (from https://my.telegram.org)
+API_ID: int = int(_require_env("API_ID"))
+API_HASH: str = _require_env("API_HASH")

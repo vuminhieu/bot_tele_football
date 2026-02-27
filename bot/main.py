@@ -2,12 +2,14 @@
 
 Sets up the Application with:
   - PicklePersistence for job state survival
-  - Scheduled jobs (Friday poll, Monday reminder, Monday close)
-  - Command handlers (/register, /list, /inactive, /help, /testpoll)
+  - Scheduled jobs (Friday poll, Monday reminder, Monday close, daily member sync)
+  - Command handlers (/list, /inactive, /help, /testpoll)
   - PollAnswer handler for real-time vote tracking
-  - Auto-registration MessageHandler
+  - ChatMemberHandler for join/leave tracking
+  - Auto-registration MessageHandler (fallback)
 """
 
+import asyncio
 import datetime
 import logging
 from pathlib import Path
@@ -16,22 +18,26 @@ from zoneinfo import ZoneInfo
 from telegram import Update
 from telegram.ext import (
     Application,
+    ChatMemberHandler,
     CommandHandler,
+    ContextTypes,
     MessageHandler,
     PicklePersistence,
     PollAnswerHandler,
     filters,
 )
-
 from bot.config import BOT_TOKEN, PERSISTENCE_PATH, TIMEZONE
 from bot.database import init_db
 from bot.handlers.commands import (
     auto_register,
+    cmd_getallmember,
     cmd_help,
     cmd_inactive,
     cmd_list,
-    cmd_register,
+    cmd_testclose,
     cmd_testpoll,
+    cmd_testreminder,
+    handle_chat_member_update,
 )
 from bot.handlers.poll_handler import handle_poll_answer
 from bot.scheduler.jobs import (
@@ -39,6 +45,7 @@ from bot.scheduler.jobs import (
     create_weekly_poll,
     send_vote_reminder,
 )
+from bot.sync_members import sync_group_members
 
 # ---------------------------------------------------------------------------
 # Logging
@@ -62,12 +69,25 @@ TZ = ZoneInfo(TIMEZONE)
 
 
 async def post_init(application: Application) -> None:
-    """Called after Application is fully initialized. Sets up DB."""
+    """Called after Application is fully initialized. Sets up DB + syncs members."""
     await init_db()
+    try:
+        count = await sync_group_members()
+        logger.info("Initial member sync complete: %d members.", count)
+    except Exception:
+        logger.exception("Initial member sync failed. Will retry on daily schedule.")
     logger.info("Bot initialized successfully.")
 
 
-# ---------------------------------------------------------------------------
+async def _sync_members_job(context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Daily job wrapper for sync_group_members."""
+    try:
+        count = await sync_group_members()
+        logger.info("Daily member sync complete: %d members.", count)
+    except Exception:
+        logger.exception("Daily member sync failed.")
+
+
 # Main
 # ---------------------------------------------------------------------------
 
@@ -114,17 +134,31 @@ def main() -> None:
         name="close_weekly_poll",
     )
 
+    # Daily 3:00 AM — Sync group members via Pyrogram
+    job_queue.run_daily(
+        _sync_members_job,
+        time=datetime.time(hour=3, minute=0, tzinfo=TZ),
+        name="sync_group_members",
+    )
+
     # --- Command Handlers -------------------------------------------------
-    app.add_handler(CommandHandler("register", cmd_register))
     app.add_handler(CommandHandler(["list", "ds"], cmd_list))
     app.add_handler(CommandHandler(["inactive", "vang"], cmd_inactive))
+    app.add_handler(CommandHandler("getallmember", cmd_getallmember))
     app.add_handler(CommandHandler("help", cmd_help))
     app.add_handler(CommandHandler("testpoll", cmd_testpoll))
+    app.add_handler(CommandHandler("testreminder", cmd_testreminder))
+    app.add_handler(CommandHandler("testclose", cmd_testclose))
 
     # --- Poll Answer Handler ----------------------------------------------
     app.add_handler(PollAnswerHandler(handle_poll_answer))
 
-    # --- Auto-registration (lowest priority group) ------------------------
+    # --- Chat Member Handler (join/leave tracking) ------------------------
+    app.add_handler(ChatMemberHandler(
+        handle_chat_member_update, ChatMemberHandler.CHAT_MEMBER
+    ))
+
+    # --- Auto-registration (lowest priority group, fallback) --------------
     app.add_handler(
         MessageHandler(
             filters.ChatType.GROUPS & ~filters.COMMAND,
@@ -135,6 +169,14 @@ def main() -> None:
 
     # --- Start Polling ----------------------------------------------------
     logger.info("Starting bot polling...")
+    # Python 3.14 no longer auto-creates an event loop in get_event_loop().
+    # Ensure one exists before run_polling() to support PyCharm debugger
+    # and any other environment where no loop is pre-created.
+    try:
+        asyncio.get_running_loop()
+    except RuntimeError:
+        asyncio.set_event_loop(asyncio.new_event_loop())
+
     app.run_polling(allowed_updates=Update.ALL_TYPES)
 
 

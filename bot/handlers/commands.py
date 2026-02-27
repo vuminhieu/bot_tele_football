@@ -1,11 +1,13 @@
 """Command handlers for the football vote bot.
 
 Commands:
-  /register — Register caller to the football group
   /list, /ds — Show current poll vote status
   /inactive, /vang — Show 3-consecutive skip voters
+  /getallmember — List all registered members in the group
   /help — Show all available commands
   /testpoll — (Dev) Manually trigger poll creation
+  /testreminder — (Dev) Manually trigger vote reminder
+  /testclose — (Dev) Manually trigger poll close
 """
 
 import logging
@@ -15,13 +17,14 @@ from telegram.ext import ContextTypes
 
 from bot.config import CHAT_ID
 from bot.database import (
+    get_active_members,
     get_consecutive_inactive,
     get_current_poll,
     get_non_voters,
     get_voters_by_option,
     register_member,
 )
-from bot.scheduler.jobs import create_weekly_poll
+from bot.scheduler.jobs import close_weekly_poll, create_weekly_poll, send_vote_reminder
 from bot.utils import format_inactive_list, format_vote_list
 
 logger = logging.getLogger(__name__)
@@ -42,19 +45,42 @@ async def auto_register(
 
 
 # ---------------------------------------------------------------------------
-# Commands
+# ChatMember handler (join/leave tracking)
 # ---------------------------------------------------------------------------
 
 
-async def cmd_register(
+async def handle_chat_member_update(
     update: Update, context: ContextTypes.DEFAULT_TYPE
 ) -> None:
-    """Explicitly register the caller to the football member list."""
-    user = update.effective_user
-    if not user:
+    """Track members joining or leaving the group in real-time.
+
+    Triggered by ChatMemberHandler.CHAT_MEMBER updates.
+    """
+    member = update.chat_member
+    if not member:
         return
-    await register_member(user.id, user.username, user.full_name)
-    await update.message.reply_text(f"✅ Đăng ký thành công: {user.full_name}")
+
+    new = member.new_chat_member
+    user = new.user
+
+    if user.is_bot:
+        return
+
+    # Member joined or was added
+    if new.status in ("member", "administrator", "creator"):
+        full_name = user.full_name or user.username or f"User_{user.id}"
+        await register_member(user.id, user.username, full_name)
+        logger.info("Member joined/added: %s (%d)", full_name, user.id)
+
+    # Member left or was kicked — mark inactive
+    elif new.status in ("left", "kicked"):
+        from bot.database import deactivate_member
+        await deactivate_member(user.id)
+        logger.info("Member left/kicked: %s (%d)", user.full_name, user.id)
+
+# ---------------------------------------------------------------------------
+# Commands
+# ---------------------------------------------------------------------------
 
 
 async def cmd_list(
@@ -76,6 +102,23 @@ async def cmd_list(
     await update.message.reply_text(text, parse_mode="HTML")
 
 
+async def cmd_getallmember(
+    update: Update, context: ContextTypes.DEFAULT_TYPE
+) -> None:
+    """List all registered (active) members in the group."""
+    members = await get_active_members()
+    if not members:
+        await update.message.reply_text("📭 Chưa có thành viên nào được đăng ký.")
+        return
+
+    lines = [f"👥 <b>Danh sách thành viên ({len(members)}):</b>\n"]
+    for i, m in enumerate(members, 1):
+        name = m["full_name"]
+        username = f' (@{m["username"]})' if m.get("username") else ""
+        lines.append(f"{i}. {name}{username}")
+
+    await update.message.reply_text("\n".join(lines), parse_mode="HTML")
+
 async def cmd_inactive(
     update: Update, context: ContextTypes.DEFAULT_TYPE
 ) -> None:
@@ -91,12 +134,13 @@ async def cmd_help(
     """Show all available bot commands."""
     text = (
         "📋 <b>Danh sách lệnh:</b>\n\n"
-        "/register - Đăng ký vào nhóm đá bóng\n"
         "/list - Xem danh sách vote hiện tại\n"
         "/inactive - Xem người 3 tuần liên tiếp vote không đá\n"
+        "/getallmember - Xem toàn bộ thành viên trong nhóm\n"
         "/help - Hiển thị trợ giúp\n\n"
         "<i>Bot tự động tạo vote thứ 6 8:30 sáng, "
-        "nhắc thứ 2 8:30 sáng, đóng thứ 2 12:00 trưa.</i>"
+        "nhắc thứ 2 8:30 sáng, đóng thứ 2 12:00 trưa.\n"
+        "Thành viên được tự động đồng bộ từ nhóm.</i>"
     )
     await update.message.reply_text(text, parse_mode="HTML")
 
@@ -106,10 +150,23 @@ async def cmd_testpoll(
 ) -> None:
     """Dev command: manually trigger poll creation for testing.
 
-    Restricted to the configured CHAT_ID group only.
+    Can be sent from any chat — the poll is created in the configured group.
     """
-    if update.effective_chat.id != CHAT_ID:
-        await update.message.reply_text("This command only works in the configured group.")
-        return
     await create_weekly_poll(context)
-    await update.message.reply_text("\U0001f9ea Test poll created.")
+    await update.message.reply_text("🧪 Test poll created.")
+
+
+async def cmd_testreminder(
+    update: Update, context: ContextTypes.DEFAULT_TYPE
+) -> None:
+    """Dev command: manually trigger vote reminder for testing."""
+    await send_vote_reminder(context)
+    await update.message.reply_text("🧪 Test reminder sent.")
+
+
+async def cmd_testclose(
+    update: Update, context: ContextTypes.DEFAULT_TYPE
+) -> None:
+    """Dev command: manually trigger poll close for testing."""
+    await close_weekly_poll(context)
+    await update.message.reply_text("🧪 Test close done.")

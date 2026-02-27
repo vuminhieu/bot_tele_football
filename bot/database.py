@@ -96,6 +96,15 @@ async def get_active_members() -> list[dict]:
         return [dict(r) for r in rows]
 
 
+async def deactivate_member(user_id: int) -> None:
+    """Mark a member as inactive (left or kicked from group)."""
+    async with aiosqlite.connect(DB_PATH) as db:
+        await db.execute(
+            "UPDATE members SET is_active = 0 WHERE user_id = ?",
+            (user_id,),
+        )
+        await db.commit()
+
 # ---------------------------------------------------------------------------
 # Polls
 # ---------------------------------------------------------------------------

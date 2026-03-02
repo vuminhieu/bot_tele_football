@@ -1,8 +1,10 @@
 data/
 *.pickle
+/.idea/
 __pycache__/
 .env
 *.pyc
 .claude/
 *.dist-info/
 *.egg-info/
+nul

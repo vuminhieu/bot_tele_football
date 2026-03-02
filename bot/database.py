@@ -20,7 +20,7 @@ CREATE TABLE IF NOT EXISTS members (
     user_id INTEGER PRIMARY KEY,
     username TEXT,
     full_name TEXT NOT NULL,
-    registered_at TEXT DEFAULT (datetime('now')),
+    registered_at TEXT DEFAULT (datetime('now','localtime')),
     is_active INTEGER DEFAULT 1
 );
 
@@ -30,7 +30,7 @@ CREATE TABLE IF NOT EXISTS polls (
     message_id INTEGER NOT NULL,
     chat_id INTEGER NOT NULL,
     week_label TEXT NOT NULL,
-    created_at TEXT DEFAULT (datetime('now')),
+    created_at TEXT DEFAULT (datetime('now','localtime')),
     closed_at TEXT,
     is_closed INTEGER DEFAULT 0
 );
@@ -40,7 +40,7 @@ CREATE TABLE IF NOT EXISTS votes (
     poll_id TEXT NOT NULL,
     user_id INTEGER NOT NULL,
     option_id INTEGER NOT NULL,
-    voted_at TEXT DEFAULT (datetime('now')),
+    voted_at TEXT DEFAULT (datetime('now','localtime')),
     FOREIGN KEY (poll_id) REFERENCES polls(poll_id),
     FOREIGN KEY (user_id) REFERENCES members(user_id),
     UNIQUE(poll_id, user_id)
@@ -150,7 +150,7 @@ async def close_poll(poll_id: str) -> None:
     async with aiosqlite.connect(DB_PATH) as db:
         await db.execute(
             """
-            UPDATE polls SET is_closed = 1, closed_at = datetime('now')
+            UPDATE polls SET is_closed = 1, closed_at = datetime('now','localtime')
             WHERE poll_id = ?
             """,
             (poll_id,),
@@ -172,7 +172,7 @@ async def save_vote(poll_id: str, user_id: int, option_id: int) -> None:
             VALUES (?, ?, ?)
             ON CONFLICT(poll_id, user_id) DO UPDATE SET
                 option_id = excluded.option_id,
-                voted_at = datetime('now')
+                voted_at = datetime('now','localtime')
             """,
             (poll_id, user_id, option_id),
         )

@@ -1,12 +1,14 @@
 FROM python:3.12-slim
 
 ENV PYTHONUNBUFFERED=1 PYTHONDONTWRITEBYTECODE=1
+ENV TZ=Asia/Ho_Chi_Minh
 
 WORKDIR /app
 
 # Install dependencies first (layer caching)
 COPY requirements.txt .
-RUN apt-get update && apt-get install -y --no-install-recommends gcc python3-dev \
+RUN apt-get update && apt-get install -y --no-install-recommends gcc python3-dev tzdata \
+    && ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone \
     && pip install --no-cache-dir -r requirements.txt \
     && apt-get purge -y gcc python3-dev \
     && apt-get autoremove -y \

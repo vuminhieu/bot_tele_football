@@ -51,9 +51,25 @@ from bot.sync_members import sync_group_members
 # Logging
 # ---------------------------------------------------------------------------
 
+class _VNFormatter(logging.Formatter):
+    """Logging formatter that always uses Asia/Ho_Chi_Minh timezone."""
+
+    def converter(self, timestamp):
+        from datetime import datetime as _dt, timezone as _tz
+        return _dt.fromtimestamp(timestamp, tz=ZoneInfo(TIMEZONE))
+
+    def formatTime(self, record, datefmt=None):
+        ct = self.converter(record.created)
+        if datefmt:
+            return ct.strftime(datefmt)
+        return ct.strftime("%Y-%m-%d %H:%M:%S")
+
+
+_handler = logging.StreamHandler()
+_handler.setFormatter(_VNFormatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s"))
 logging.basicConfig(
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
     level=logging.INFO,
+    handlers=[_handler],
 )
 # Reduce noise from httpx (used by python-telegram-bot internally)
 logging.getLogger("httpx").setLevel(logging.WARNING)

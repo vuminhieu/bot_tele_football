@@ -130,7 +130,7 @@ def main() -> None:
     job_queue.run_daily(
         create_weekly_poll,
         time=datetime.time(hour=8, minute=30, tzinfo=TZ),
-        days=(4,),  # Friday (Monday=0 in python-telegram-bot)
+        days=(5,),  # Friday (0=Sun, 1=Mon, ..., 5=Fri, 6=Sat in PTB v20+)
         name="create_weekly_poll",
     )
 
@@ -138,7 +138,7 @@ def main() -> None:
     job_queue.run_daily(
         send_vote_reminder,
         time=datetime.time(hour=8, minute=30, tzinfo=TZ),
-        days=(0,),  # Monday
+        days=(1,),  # Monday
         name="send_vote_reminder",
     )
 
@@ -146,7 +146,7 @@ def main() -> None:
     job_queue.run_daily(
         close_weekly_poll,
         time=datetime.time(hour=12, minute=0, tzinfo=TZ),
-        days=(0,),  # Monday
+        days=(1,),  # Monday
         name="close_weekly_poll",
     )
 
